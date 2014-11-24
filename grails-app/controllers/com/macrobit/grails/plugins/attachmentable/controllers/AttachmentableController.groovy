@@ -14,12 +14,11 @@
  */
 package com.macrobit.grails.plugins.attachmentable.controllers
 
-import org.codehaus.groovy.grails.commons.ConfigurationHolder as CH
+import grails.util.Holders as CH
 
 import com.macrobit.grails.plugins.attachmentable.domains.Attachment
 import com.macrobit.grails.plugins.attachmentable.domains.AttachmentLink
 import com.macrobit.grails.plugins.attachmentable.util.AttachmentableUtil
-import grails.orm.PagedResultList
 import javax.servlet.http.HttpServletResponse
 
 class AttachmentableController {

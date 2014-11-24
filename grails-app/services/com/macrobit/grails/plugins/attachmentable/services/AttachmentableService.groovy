@@ -14,12 +14,11 @@
  */
 package com.macrobit.grails.plugins.attachmentable.services
 
-import org.codehaus.groovy.grails.commons.ConfigurationHolder as CH
+import grails.util.Holders as CH
 
 import com.macrobit.grails.plugins.attachmentable.core.exceptions.AttachmentableException
 import com.macrobit.grails.plugins.attachmentable.domains.Attachment
 import com.macrobit.grails.plugins.attachmentable.domains.AttachmentLink
-import grails.orm.PagedResultList
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.multipart.commons.CommonsMultipartFile
 import com.macrobit.grails.plugins.attachmentable.util.AttachmentableUtil
@@ -298,7 +297,7 @@ class AttachmentableService {
 
     // find
 
-    PagedResultList findAttachmentsByPoster(def poster, def params = [:]) {
+    def findAttachmentsByPoster(def poster, def params = [:]) {
         if (!poster) {
             throw new AttachmentableException("Poster is null.")
         }
@@ -312,7 +311,7 @@ class AttachmentableService {
         params.sort = params.sort ?: 'dateCreated'
         params.cache = true
 
-        PagedResultList result = Attachment.createCriteria().list(params) {
+        def result = Attachment.createCriteria().list(params) {
             eq "posterClass", (poster instanceof String) ? poster : poster.class.name
             eq 'posterId', (poster instanceof String) ? 0L : poster.id
         }
@@ -320,7 +319,7 @@ class AttachmentableService {
         result
     }
 
-    PagedResultList findAttachmentsByReference(def reference,
+    def findAttachmentsByReference(def reference,
                                                List inputs,
                                                def params = [:]) {
         if (!reference) {
@@ -337,7 +336,7 @@ class AttachmentableService {
         params.sort = params.sort ?: 'dateCreated'
         params.cache = true
 
-        PagedResultList result = Attachment.createCriteria().list(params) {
+        def result = Attachment.createCriteria().list(params) {
             if (inputs) {
                 inList 'inputName', inputs
             }

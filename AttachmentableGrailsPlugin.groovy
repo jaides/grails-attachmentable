@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import org.codehaus.groovy.grails.commons.ConfigurationHolder as CH
+import  grails.util.Holders as CH
 import org.codehaus.groovy.grails.commons.GrailsClassUtils
 import com.macrobit.grails.plugins.attachmentable.core.ajax.AjaxMultipartResolver as AMR
 import com.macrobit.grails.plugins.attachmentable.core.Attachmentable
@@ -32,9 +32,9 @@ class AttachmentableGrailsPlugin {
 
     static LOG = LogFactory.getLog('com.macrobit.grails.plugins.AttachmentableGrailsPlugin')
 
-    def version = '0.4.0-SNAPSHOT'
-    def grailsVersion = '1.1 > *'
-    def dependsOn = [hibernate: '1.1 > *']
+    def version = '0.5.0-SNAPSHOT'
+    def grailsVersion = '2.4 > *'
+//    def dependsOn = [hibernate: '4.3.5.4 > *']
     def pluginExcludes = [
         'lib/**',
 

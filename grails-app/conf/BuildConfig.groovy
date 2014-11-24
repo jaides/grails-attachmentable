@@ -19,11 +19,11 @@ grails.project.dependency.resolution = {
 	compile 'org.compass-project:compass:2.2.0'
     }
     plugins {
-        build(":tomcat:$grailsVersion",
+        build(":tomcat:7.0.54",
                 ":release:2.2.1",
                 ":rest-client-builder:1.0.3") {
             export = false
         }
-        runtime(":hibernate:$grailsVersion") { export = false }
+        runtime ":hibernate4:4.3.5.4" { export = false }
     }
 }
