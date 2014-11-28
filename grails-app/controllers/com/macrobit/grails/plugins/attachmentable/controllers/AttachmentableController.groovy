@@ -80,7 +80,12 @@ class AttachmentableController {
 
         attachUploadedFilesTo(lnk.reference)
 
-        render 'success'
+        if (params.returnPageURI) {
+            redirect url: params.returnPageURI
+        } else {
+            render 'success'
+        }
+
     }
 
     def uploadInfo = {
