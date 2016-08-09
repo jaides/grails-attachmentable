@@ -28,188 +28,254 @@ import java.lang.reflect.UndeclaredThrowableException
 
 class AttachmentableService {
 
-    def grailsApplication
+	def grailsApplication
 
-    /* -------------------------- ATTACHMENT LINK --------------------------- */
+	/* -------------------------- ATTACHMENT LINK --------------------------- */
 
-    AttachmentLink getAttachmentLink(Long attachmentId) {
-        def link = AttachmentLink.withCriteria(uniqueResult: true) {
-            attachments {
-                idEq attachmentId
-            }
-        }
-        link
-    }
+	AttachmentLink getAttachmentLink(Long attachmentId) {
+		def link = AttachmentLink.withCriteria(uniqueResult: true) {
+			attachments { idEq attachmentId }
+		}
+		link
+	}
 
-    /* ------------------------------- POSTER ------------------------------- */
+	/* ------------------------------- POSTER ------------------------------- */
 
-    def getPoster(Attachment attachment) {
-      attachment.poster
-    }
+	def getPoster(Attachment attachment) {
+		attachment.poster
+	}
 
-    /* ----------------------------- ATTACHMENT ----------------------------- */
+	/* ----------------------------- ATTACHMENT ----------------------------- */
 
-    // add
+	// add
 
-    /**
-     * Upload a list of files.
-     * @param poster
-     * @param reference
-     * @param files
-     * @return a list of successfully uploaded files
-     */
-    List<MultipartFile> upload(def poster,
-                               def reference,
-                               List<MultipartFile> files) {
-        def uploadedFiles = []
+	/**
+	 * Upload a list of files.
+	 * @param poster
+	 * @param reference
+	 * @param files
+	 * @return a list of successfully uploaded files
+	 */
+	List<MultipartFile> upload(def poster,
+			def reference,
+			List<MultipartFile> files) {
+		def uploadedFiles = []
 
-        try {
-            Attachment.withTransaction {status ->
-                files.each {MultipartFile file ->
-                    try {
-                        addAttachment(poster, reference, file)
-                        uploadedFiles << file
-                    } catch (Exception e) {
-                        if (e instanceof EmptyFileException) {
-                            log.error "Error adding attachment: ${e.message}"
-                        } else if (e instanceof UndeclaredThrowableException
-                                && e.cause instanceof EmptyFileException) {
-                            log.error "Error adding attachment: ${e.cause.message}"
-                        } else {
-                            status.setRollbackOnly()
-                            log.error "Error adding attachment", e
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.error "Error adding attachment: ${e.message}"
-        }
+		try {
+			Attachment.withTransaction {status ->
+				files.each {MultipartFile file ->
+					try {
+						addAttachment(poster, reference, file)
+						uploadedFiles << file
+					} catch (Exception e) {
+						if (e instanceof EmptyFileException) {
+							log.error "Error adding attachment: ${e.message}"
+						} else if (e instanceof UndeclaredThrowableException
+						&& e.cause instanceof EmptyFileException) {
+							log.error "Error adding attachment: ${e.cause.message}"
+						} else {
+							status.setRollbackOnly()
+							log.error "Error adding attachment", e
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			log.error "Error adding attachment: ${e.message}"
+		}
 
-        uploadedFiles
-    }
+		uploadedFiles
+	}
 
-    def addAttachment(def poster, def reference, CommonsMultipartFile file) {
-        addAttachment(CH.config, poster, reference, file)
-    }
+	def addAttachment(def poster, def reference, CommonsMultipartFile file) {
+		addAttachment(CH.config, poster, reference, file)
+	}
 
-    def addAttachment(def config,
-                      def poster,
-                      def reference,
-                      CommonsMultipartFile file) {
+	def addAttachment(def poster, def reference, def file) {
+		println "entered method"
+		addAttachment(CH.config, poster, reference, file)
+	}
 
-        if (reference.ident() == null) {
-            throw new AttachmentableException(
-                "You must save the entity [${delegate}] before calling addAttachment.")
-        }
+	def addAttachment(def config,
+			def poster,
+			def reference,
+			CommonsMultipartFile file) {
 
-        if (!file?.size) {
-            throw new EmptyFileException(file.name, file.originalFilename)
-        }
+		if (reference.ident() == null) {
+			throw new AttachmentableException(
+			"You must save the entity [${delegate}] before calling addAttachment.")
+		}
 
-        String delegateClassName = AttachmentableUtil.fixClassName(reference.class)
-        String posterClass = (poster instanceof String) ? poster : AttachmentableUtil.fixClassName(poster.class.name)
-        Long posterId = (poster instanceof String) ? 0L : poster.id
-        String filename = file.originalFilename
+		if (!file?.size) {
+			throw new EmptyFileException(file.name, file.originalFilename)
+		}
 
-        // link
-        def link = AttachmentLink.findByReferenceClassAndReferenceId(
-                delegateClassName, reference.ident())
-        if (!link) {
-            link = new AttachmentLink(
-                    referenceClass: delegateClassName,
-                    referenceId: reference.ident())
-        }
+		String delegateClassName = AttachmentableUtil.fixClassName(reference.class)
+		String posterClass = (poster instanceof String) ? poster : AttachmentableUtil.fixClassName(poster.class.name)
+		Long posterId = (poster instanceof String) ? 0L : poster.id
+		String filename = file.originalFilename
 
-        // attachment
-        Attachment attachment = new Attachment(
-                // file
-                name: FilenameUtils.getBaseName(filename),
-                ext: FilenameUtils.getExtension(filename),
-                length: 0L,
-                contentType: file.contentType,
-                // poster
-                posterClass: posterClass,
-                posterId: posterId,
-                // input
-                inputName: file.name)
-        link.addToAttachments attachment
+		// link
+		def link = AttachmentLink.findByReferenceClassAndReferenceId(
+				delegateClassName, reference.ident())
+		if (!link) {
+			link = new AttachmentLink(
+					referenceClass: delegateClassName,
+					referenceId: reference.ident())
+		}
 
-        if (!link.save(flush: true)) {
-            throw new AttachmentableException(
-                    "Cannot create Attachment for arguments [$user, $file], they are invalid.")
-        }
+		// attachment
+		Attachment attachment = new Attachment(
+				// file
+				name: FilenameUtils.getBaseName(filename),
+				ext: FilenameUtils.getExtension(filename),
+				length: 0L,
+				contentType: file.contentType,
+				// poster
+				posterClass: posterClass,
+				posterId: posterId,
+				// input
+				inputName: file.name)
+		link.addToAttachments attachment
 
-        // save file to disk
-        File diskFile = AttachmentableUtil.getFile(config, attachment, true)
-        file.transferTo(diskFile)
+		if (!link.save(flush: true)) {
+			throw new AttachmentableException(
+			"Cannot create Attachment for arguments [$user, $file], they are invalid.")
+		}
 
-        attachment.length = diskFile.length()
+		// save file to disk
+		File diskFile = AttachmentableUtil.getFile(config, attachment, true)
+		file.transferTo(diskFile)
 
-        // interceptors
-        if(reference.respondsTo('onAddAttachment')) {
-            reference.onAddAttachment(attachment)
-        }
+		attachment.length = diskFile.length()
 
-        attachment.save(flush:true) // Force update so searchable can try to index it again.
+		// interceptors
+		if(reference.respondsTo('onAddAttachment')) {
+			reference.onAddAttachment(attachment)
+		}
 
-        return reference
-    }
+		attachment.save(flush:true) // Force update so searchable can try to index it again.
 
-    // remove
+		return reference
+	}
 
-    int removeAttachments(def reference) {
-        def cnt = 0
-        def dir = AttachmentableUtil.getDir(CH.config, reference)
-        def files = []
-        reference.getAttachments()?.collect {
-            files << AttachmentableUtil.getFile(CH.config, it)
-        }
+	def addAttachment(def config,
+			def poster,
+			def reference,
+			ImageFile file) {
 
-        def lnk = AttachmentLink.findByReferenceClassAndReferenceId(
-                reference.class.name, reference.ident())
-        if (lnk) {
-            try {
-                lnk.delete(flush: true)
-                files.each {File file ->
-                    cnt++
-                    AttachmentableUtil.delete(file)
-                }
-            } catch (org.springframework.dao.DataIntegrityViolationException e) {
-                log.error "Error deleting attachments: ${e.message}"
-            }
+		if (reference.ident() == null) {
+			throw new AttachmentableException(
+			"You must save the entity [${delegate}] before calling addAttachment.")
+		}
 
-            if (cnt) {
-                AttachmentableUtil.delete(dir)
-            }
-        }
+		if (!file?.size) {
+			throw new EmptyFileException(file.name, file.originalFilename)
+		}
 
-        cnt
-    }
+		String delegateClassName = AttachmentableUtil.fixClassName(reference.class)
+		String posterClass = (poster instanceof String) ? poster : AttachmentableUtil.fixClassName(poster.class.name)
+		Long posterId = (poster instanceof String) ? 0L : poster.id
+		String filename = file.originalFilename
 
-    boolean removeAttachment(Long attachmentId) {
-        removeAttachment(Attachment.get(attachmentId))
-    }
+		// link
+		def link = AttachmentLink.findByReferenceClassAndReferenceId(
+				delegateClassName, reference.ident())
+		if (!link) {
+			link = new AttachmentLink(
+					referenceClass: delegateClassName,
+					referenceId: reference.ident())
+		}
 
-    boolean removeAttachment(Attachment attachment) {
-        File file = AttachmentableUtil.getFile(CH.config, attachment)
-        try {
-            AttachmentLink lnk = attachment.lnk
-            lnk.removeFromAttachments(attachment)
-            attachment.delete(flush: true)
-            AttachmentableUtil.delete(file)
-            removeUnusedLinks()
-            return true
-        } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            log.error "Error deleting attachment: ${e.message}"
-        }
+		// attachment
+		Attachment attachment = new Attachment(
+				// file
+				name: FilenameUtils.getBaseName(filename),
+				ext: 'jpeg',
+				length: 0L,
+				contentType: file.contentType,
+				// poster
+				posterClass: posterClass,
+				posterId: posterId,
+				// input
+				inputName: file.name)
+		link.addToAttachments attachment
 
-        false
-    }
+		if (!link.save(flush: true)) {
+			throw new AttachmentableException(
+			"Cannot create Attachment for arguments [$user, $file], they are invalid.")
+		}
 
-    int removeAttachments(def reference, List inputNames) {
-        def cnt = 0
-        def attachments = AttachmentLink.executeQuery("""
+		// save file to disk
+		File diskFile = AttachmentableUtil.getFile(config, attachment, true)
+		file.transferTo(diskFile)
+
+		attachment.length = diskFile.length()
+
+		// interceptors
+		if(reference.respondsTo('onAddAttachment')) {
+			reference.onAddAttachment(attachment)
+		}
+
+		attachment.save(flush:true) // Force update so searchable can try to index it again.
+
+		return reference
+	}
+
+	// remove
+
+	int removeAttachments(def reference) {
+		def cnt = 0
+		def dir = AttachmentableUtil.getDir(CH.config, reference)
+		def files = []
+		reference.getAttachments()?.collect {
+			files << AttachmentableUtil.getFile(CH.config, it)
+		}
+
+		def lnk = AttachmentLink.findByReferenceClassAndReferenceId(
+				reference.class.name, reference.ident())
+		if (lnk) {
+			try {
+				lnk.delete(flush: true)
+				files.each {File file ->
+					cnt++
+					AttachmentableUtil.delete(file)
+				}
+			} catch (org.springframework.dao.DataIntegrityViolationException e) {
+				log.error "Error deleting attachments: ${e.message}"
+			}
+
+			if (cnt) {
+				AttachmentableUtil.delete(dir)
+			}
+		}
+
+		cnt
+	}
+
+	boolean removeAttachment(Long attachmentId) {
+		removeAttachment(Attachment.get(attachmentId))
+	}
+
+	boolean removeAttachment(Attachment attachment) {
+		File file = AttachmentableUtil.getFile(CH.config, attachment)
+		try {
+			AttachmentLink lnk = attachment.lnk
+			lnk.removeFromAttachments(attachment)
+			attachment.delete(flush: true)
+			AttachmentableUtil.delete(file)
+			removeUnusedLinks()
+			return true
+		} catch (org.springframework.dao.DataIntegrityViolationException e) {
+			log.error "Error deleting attachment: ${e.message}"
+		}
+
+		false
+	}
+
+	int removeAttachments(def reference, List inputNames) {
+		def cnt = 0
+		def attachments = AttachmentLink.executeQuery("""
             select a
                 Attachment a inner join a.lnk link
             where
@@ -218,135 +284,131 @@ class AttachmentableService {
                 link.referenceClass = :referenceClass
                 and
                 link.referenceId = :referenceId""",
-            [referenceClass: reference.class.name, referenceId: reference.ident(),
-                    inputNames: inputNames])
+				[referenceClass: reference.class.name, referenceId: reference.ident(),
+					inputNames: inputNames])
 
-        attachments?.each {Attachment attachment ->
-            File file = AttachmentableUtil.getFile(CH.config, attachment)
+		attachments?.each {Attachment attachment ->
+			File file = AttachmentableUtil.getFile(CH.config, attachment)
 
-            try {
-                attachment.delete(flush: true)
-                cnt++
-                AttachmentableUtil.delete(file)
-            } catch (org.springframework.dao.DataIntegrityViolationException e) {
-                log.error "Error deleting attachments: ${e.message}"
-            }
-        }
+			try {
+				attachment.delete(flush: true)
+				cnt++
+				AttachmentableUtil.delete(file)
+			} catch (org.springframework.dao.DataIntegrityViolationException e) {
+				log.error "Error deleting attachments: ${e.message}"
+			}
+		}
 
-        removeUnusedLinks()
+		removeUnusedLinks()
 
-        cnt
-    }
+		cnt
+	}
 
-    private int removeUnusedLinks() {
-        int result = Attachment.executeUpdate(
-                'delete from AttachmentLink link where link.attachments is empty')
-        result
-    }
+	private int removeUnusedLinks() {
+		int result = Attachment.executeUpdate(
+				'delete from AttachmentLink link where link.attachments is empty')
+		result
+	}
 
-    // count
+	// count
 
-    int countAttachmentsByReference(def reference, List inputNames = []) {
-        if (!reference) {
-            throw new AttachmentableException(
-                    "Reference is null.")
-        }
+	int countAttachmentsByReference(def reference, List inputNames = []) {
+		if (!reference) {
+			throw new AttachmentableException(
+			"Reference is null.")
+		}
 
-        if (!reference.ident()) {
-            throw new AttachmentableException(
-                    "Reference [$reference] is not a persisted instance.")
-        }
+		if (!reference.ident()) {
+			throw new AttachmentableException(
+			"Reference [$reference] is not a persisted instance.")
+		}
 
-        int result = Attachment.createCriteria().get {
-            projections {
-                rowCount()
-            }
-            if (inputNames) {
-                inList 'inputName', inputNames
-            }
-            lnk {
-                eq 'referenceClass', reference.class.name
-                eq 'referenceId', reference.ident()
-            }
-            cache true
-        }
-        result
-    }
+		int result = Attachment.createCriteria().get {
+			projections { rowCount() }
+			if (inputNames) {
+				inList 'inputName', inputNames
+			}
+			lnk {
+				eq 'referenceClass', reference.class.name
+				eq 'referenceId', reference.ident()
+			}
+			cache true
+		}
+		result
+	}
 
-    int countAttachmentsByPoster(def poster) {
-        if (!poster) {
-            throw new AttachmentableException("Poster is null.")
-        }
+	int countAttachmentsByPoster(def poster) {
+		if (!poster) {
+			throw new AttachmentableException("Poster is null.")
+		}
 
-        if (! (poster instanceof String) && !poster.id) {
-            throw new AttachmentableException(
-                    "Poster [$poster] is not a persisted instance.")
-        }
+		if (! (poster instanceof String) && !poster.id) {
+			throw new AttachmentableException(
+			"Poster [$poster] is not a persisted instance.")
+		}
 
-        int result = Attachment.createCriteria().get {
-            projections {
-                rowCount()
-            }
-            eq "posterClass", (poster instanceof String) ? poster : poster.class.name
-            eq 'posterId', (poster instanceof String) ? 0L : poster.id
-            cache true
-        }
+		int result = Attachment.createCriteria().get {
+			projections { rowCount() }
+			eq "posterClass", (poster instanceof String) ? poster : poster.class.name
+			eq 'posterId', (poster instanceof String) ? 0L : poster.id
+			cache true
+		}
 
-        result
-    }
+		result
+	}
 
-    // find
+	// find
 
-    def findAttachmentsByPoster(def poster, def params = [:]) {
-        if (!poster) {
-            throw new AttachmentableException("Poster is null.")
-        }
+	def findAttachmentsByPoster(def poster, def params = [:]) {
+		if (!poster) {
+			throw new AttachmentableException("Poster is null.")
+		}
 
-        if (! (poster instanceof String) && !poster.id) {
-            throw new AttachmentableException(
-                    "Poster [$poster] is not a persisted instance.")
-        }
+		if (! (poster instanceof String) && !poster.id) {
+			throw new AttachmentableException(
+			"Poster [$poster] is not a persisted instance.")
+		}
 
-        params.order = params.order ?: 'desc'
-        params.sort = params.sort ?: 'dateCreated'
-        params.cache = true
+		params.order = params.order ?: 'desc'
+		params.sort = params.sort ?: 'dateCreated'
+		params.cache = true
 
-        def result = Attachment.createCriteria().list(params) {
-            eq "posterClass", (poster instanceof String) ? poster : poster.class.name
-            eq 'posterId', (poster instanceof String) ? 0L : poster.id
-        }
+		def result = Attachment.createCriteria().list(params) {
+			eq "posterClass", (poster instanceof String) ? poster : poster.class.name
+			eq 'posterId', (poster instanceof String) ? 0L : poster.id
+		}
 
-        result
-    }
+		result
+	}
 
-    def findAttachmentsByReference(def reference,
-                                               List inputs,
-                                               def params = [:]) {
-        if (!reference) {
-            throw new AttachmentableException(
-                    "Reference is null.")
-        }
+	def findAttachmentsByReference(def reference,
+			List inputs,
+			def params = [:]) {
+		if (!reference) {
+			throw new AttachmentableException(
+			"Reference is null.")
+		}
 
-        if (!reference.ident()) {
-            throw new AttachmentableException(
-                    "Reference [$reference] is not a persisted instance.")
-        }
+		if (!reference.ident()) {
+			throw new AttachmentableException(
+			"Reference [$reference] is not a persisted instance.")
+		}
 
-        params.order = params.order ?: 'desc'
-        params.sort = params.sort ?: 'dateCreated'
-        params.cache = true
+		params.order = params.order ?: 'desc'
+		params.sort = params.sort ?: 'dateCreated'
+		params.cache = true
 
-        def result = Attachment.createCriteria().list(params) {
-            if (inputs) {
-                inList 'inputName', inputs
-            }
-            lnk {
-                eq 'referenceClass', reference.class.name
-                eq 'referenceId', reference.ident()
-            }
-        }
+		def result = Attachment.createCriteria().list(params) {
+			if (inputs) {
+				inList 'inputName', inputs
+			}
+			lnk {
+				eq 'referenceClass', reference.class.name
+				eq 'referenceId', reference.ident()
+			}
+		}
 
-        result
-    }
+		result
+	}
 
 }
